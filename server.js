@@ -81,12 +81,12 @@ cron.schedule("24 12 * * *", () => {
     uploadPost()
 })
 
-cron.schedule("0 18 * * *", () => {
+cron.schedule("24 18 * * *", () => {
     //code to be executed
     uploadPost()
 })
 
-cron.schedule("0 21 * * *", () => {
+cron.schedule("24 21 * * *", () => {
     //code to be executed
      uploadPost()
 })
