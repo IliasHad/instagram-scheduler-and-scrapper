@@ -11,7 +11,7 @@ export const IndexPage = () => {
 
   useEffect(() => {
 
-    fetch("http://localhost:8000/api/v1/post/")
+    fetch("https://instagram-bot-scheduler.herokuapp.com/api/v1/post/")
     .then(res => res.json())
     .then(({posts}) => setPosts(posts))
 

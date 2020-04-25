@@ -22,7 +22,7 @@ export const LoginPage = () => {
     console.log(requestBody)
 
 
-    fetch(`http://localhost:8000/api/v1/user/login`, {
+    fetch(`https://instagram-bot-scheduler.herokuapp.com//api/v1/user/login`, {
       method: 'post',
       body: JSON.stringify(requestBody),
       headers: {
