@@ -13,7 +13,7 @@ const checkAuth = require('../middleware/check-auth');
 
 
 // Mongoose Models
-const User = require('../models/user')
+const User = require('../models/User')
 
 
 router.post('/signup', (req, res, next) => {
