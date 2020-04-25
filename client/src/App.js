@@ -23,7 +23,9 @@ function App() {
 
         {isLogged && <Redirect from="/login" to="/dashboard" exact />}
       
-   
+        {isLogged && <Redirect from="/" to="/dashboard" exact />}
+        {!isLogged && <Redirect from="/" to="/login" exact />}
+
       </Switch>
     </Router>
   );
