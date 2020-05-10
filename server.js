@@ -90,6 +90,7 @@ low(adapter)
           caption,
           scheduledDate,
           isPublished: false,
+          isOriginal: true,
         })
         .write()
         .then((post) => res.status(201).json({ post }));
@@ -101,11 +102,7 @@ low(adapter)
         isPublished: false,
         scheduledDate: new Date().toLocaleDateString(),
       });
-      const { image, description, author, postId } = post.value();
-
-      uploadPhoto(image, description, author, postId).then((data) => {
-        db.get("posts").find({ postId }).assign({ isPublished: true }).write();
-      });
+      console.log(post.value());
     };
 
     //This will run at the start of every minute
@@ -125,6 +122,7 @@ low(adapter)
               username_img,
               postId: id,
               isPublished: false,
+              isOriginal: false,
             })
             .write()
 

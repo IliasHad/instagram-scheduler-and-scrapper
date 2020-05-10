@@ -1,7 +1,7 @@
 require("dotenv").config();
 const { IgApiClient } = require("instagram-private-api");
 const { get } = require("request-promise");
-
+const fs = require("fs");
 const ig = new IgApiClient();
 
 async function login() {
@@ -12,24 +12,32 @@ async function login() {
   await ig.account.login(process.env.username, process.env.password);
 }
 
-exports.uploadPhoto = async (photo, caption, author, id) => {
+exports.uploadPhoto = async (photo, caption, author, id, isOriginal) => {
   await login();
 
-  console.log("hhiii");
-
-  console.log(photo);
+  let postCaption;
+  let imageBuffer;
   // getting random square image from internet as a Buffer
-  const imageBuffer = await get({
-    url: photo, // random picture with 800x800 size
-    encoding: null, // this is required, only this way a Buffer is returned
-  });
+
+  if (author) {
+    postCaption = `Post by @${author} 
+      ${caption}`;
+
+    imageBuffer = await get({
+      url: photo, // random picture with 800x800 size
+      encoding: null, // this is required, only this way a Buffer is returned
+    });
+  } else {
+    postCaption = caption;
+
+    imageBuffer = fs.readFileSync(photo);
+  }
 
   const publishResult = await ig.publish.photo({
     // read the file into a Buffer
     file: imageBuffer,
     // optional, default ''
-    caption: `Post by @${author} 
-      ${caption}`,
+    caption: postCaption,
     usertags: {
       in: [
         // tag the user 'instagram' @ (0.5 | 0.5)
@@ -41,32 +49,7 @@ exports.uploadPhoto = async (photo, caption, author, id) => {
   return new Promise(async (resolve, reject) => {
     console.log(publishResult.status);
     if (publishResult.status === "ok") {
-      await ig.media.comment({
-        mediaId: publishResult.media.id,
-        text: `
-    #programming
-      #developer
-      #coding
-       #programmer
-       #programminglife
-        #codinglif
-         #coder
-          #webdeveloper
-           #javascript
-            #java
-             #php #code
-              #codingisfun #programmers
-               #softwaredeveloper #codingpics
-                #programming #webdevelopment
-                 #programmingisfun #html
-                  #python #programminghumor
-                   #css
-                   #developers
-                   #programmerslife
-                   #computerscience`,
-      });
-
-      resolve(id);
+      resolve("Ok");
     } else {
       reject("error");
     }

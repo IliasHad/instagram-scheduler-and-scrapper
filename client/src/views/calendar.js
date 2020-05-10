@@ -8,7 +8,7 @@ export const Calendar = () => {
   const [no_of_dats, setNo_of_dats] = useState([]);
   const [blankdays, setBlankdays] = useState([]);
   const [openEventModal, setOpenEventModal] = useState(false);
-  const [events, setEvents] = useState([]);
+  const [posts, setPosts] = useState([]);
   const [caption, setCaption] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [month, setMonth] = useState(today.getMonth());
@@ -88,6 +88,10 @@ export const Calendar = () => {
 
   useEffect(() => {
     getNoOfDays();
+
+    fetch("http://localhost:8030/posts/")
+      .then((res) => res.json())
+      .then(({ posts }) => setPosts(posts));
   }, [month]);
 
   return (
@@ -211,34 +215,34 @@ export const Calendar = () => {
                         style={{ height: "80px" }}
                         className="overflow-y-auto mt-1"
                       >
-                        {events
+                        {posts
                           .filter(
-                            (event) =>
-                              event.date ===
+                            (post) =>
+                              post.scheduledDate ===
                               new Date(year, month, date).toDateString()
                           )
-                          .map((event, index) => (
+                          .map((post, index) => (
                             <div
                               key={index}
                               className="absolute top-0 right-0 mt-2 mr-2 inline-flex items-center justify-center rounded-full text-sm w-6 h-6 bg-gray-700 text-white leading-none"
                             >
-                              {event.title}
+                              {post.caption}
                             </div>
                           ))}
 
-                        {events
+                        {posts
                           .filter(
-                            (event) =>
-                              new Date(event.date).toDateString() ===
+                            (post) =>
+                              new Date(post.scheduledDate).toDateString() ===
                               new Date(year, month, date).toDateString()
                           )
-                          .map((event, index) => (
+                          .map((post, index) => (
                             <div
                               key={index}
                               className="px-2 py-1 rounded-lg mt-1 overflow-hidden border"
                             >
                               <p className="text-sm truncate leading-tight">
-                                {event.title}
+                                {post.caption}
                               </p>
                             </div>
                           ))}
@@ -258,7 +262,7 @@ export const Calendar = () => {
               <div className="p-4 max-w-xl mx-auto relative absolute left-0 right-0 overflow-hidden mt-24">
                 <div
                   className="shadow absolute right-0 top-0 w-10 h-10 rounded-full bg-white text-gray-500 hover:text-gray-800 inline-flex items-center justify-center cursor-pointer"
-                  // onclick="openEventModal = !openEventModal"
+                  onClick={() => setOpenEventModal(false)}
                 >
                   <svg
                     className="fill-current w-6 h-6"

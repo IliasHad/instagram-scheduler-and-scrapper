@@ -4,6 +4,10 @@
 
 In the project directory, you can run:
 
+### `redis-server`
+
+Run the redis server to be able to run the jobs queue for scrapping
+
 ### `yarn dev`
 
 Runs the app in the development mode.<br />
