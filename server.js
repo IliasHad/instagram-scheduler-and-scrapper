@@ -1,97 +1,143 @@
-require('dotenv').config()
-const cron = require("node-cron")
-
-const express = require('express');
-const morgan = require('morgan')
-const bodyParser = require('body-parser');
-const mongoose = require('mongoose');
+const express = require("express");
+const bodyParser = require("body-parser");
+const path = require("path");
+const low = require("lowdb");
+const FileAsync = require("lowdb/adapters/FileAsync");
+const { getPostData } = require("./helpers/get-post-data");
+const cron = require("node-cron");
+const { uploadPhoto } = require("./helpers/upload-post");
+const kue = require("kue");
+const queue = kue.createQueue();
+// Create server
 const app = express();
-const port = process.env.PORT || 8030;
-const path = require('path')
-const cookieParser = require('cookie-parser')
-const Post = require("./models/Post");
-const {uploadPhoto} = require("./helpers/upload-post")
-
-
-mongoose.connect(
-    
-   process.env.MONGO_URL,
-    { useNewUrlParser: true , useCreateIndex: true , useFindAndModify: false , useUnifiedTopology: true }, () => {
-        console.log('MongoDB Connected')
-    })
-
-
-mongoose.Promise = global.Promise;
-
-
 // MiddleWeares
-app.use(morgan('dev'));
-app.use(cookieParser("secret"));
+const multer = require("multer");
 
-app.use(bodyParser.urlencoded({ extended: false}));
-app.use(bodyParser.json()); 
-app.use((req, res, next)=> {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', "Origin, X-Requested-with, Content-Type, Accept, Authorization")
-    if(req.method === "OPTIONS") {
-        res.header('Access-Control-Allow-Methods', 'PUT, POST, DELETE, PATCH, GET')
-        return res.status(200).json({})
-    }
-next();
-})
+var storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./images"); // here we specify the destination . in this case i specified the current directory
+  },
+  filename: function (req, file, cb) {
+    console.log(file);
+    cb(null, file.originalname); // here we specify the file saving name . in this case i specified the original file name
+  },
+});
 
+var uploadDisk = multer({ storage: storage });
 
-// Routes Handling Incomming Requests
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-with, Content-Type, Accept, Authorization"
+  );
+  if (req.method === "OPTIONS") {
+    res.header("Access-Control-Allow-Methods", "PUT, POST, DELETE, PATCH, GET");
+    return res.status(200).json({});
+  }
+  next();
+});
+// Create database instance and start server
+const adapter = new FileAsync("db.json");
+low(adapter)
+  .then((db) => {
+    // Routes
+    // GET /posts/:id
+    app.get("/posts/", (req, res) => {
+      const postsIG = db.get("posts") || [];
 
-const userRoutes = require('./routes/user')
+      res.status(200).json({ posts: postsIG });
+    });
 
-const postRoutes  = require('./routes/post')
+    // POST /posts
 
+    app.use("/kue-api/", kue.app);
 
-app.use('/api/v1/user', userRoutes)
-app.use('/api/v1/post', postRoutes)
+    app.post("/posts", (req, res) => {
+      console.log(req.body);
 
+      let id = req.body.url.split("/p/")[1].split("/")[0];
+      const posts = db.get("posts").find({ postId: id }).value();
+      console.log(posts);
+      if (!posts || posts.length === 0) {
+        queue
+          .create("scrape instagram post", {
+            url: req.body.url,
+          })
+          .priority("high")
+          .save();
+        res.status(201).json({ posts: db.get("posts") || [] });
+      } else {
+        const postsIG = db.get("posts") || [];
 
+        res.status(200).json({ posts: postsIG });
+      }
+    });
 
-if(process.env.NODE_ENV === "production") {
-    app.use(express.static(path.join(__dirname, 'client/build')));
-    app.get('*', (req, res) => {
-          res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
-    
-      })
-}
+    app.post("/upload", uploadDisk.single("image"), (req, res) => {
+      console.log(" file disk uploaded", req.file);
+      res.send(req.file.path);
+    });
 
+    app.post("/schedule", uploadDisk.single("image"), (req, res) => {
+      const { image, scheduledDate, caption } = req.body;
 
+      db.get("posts")
+        .push({
+          image: path.join(__dirname, image),
+          caption,
+          scheduledDate,
+          isPublished: false,
+        })
+        .write()
+        .then((post) => res.status(201).json({ post }));
+    });
 
-const uploadPost = () => {
-    Post.find({isPublished : false}) 
-    .then(posts => {
-        if(posts.length > 0) {
-           const {photo , description, author, postId } = posts[Math.floor(Math.random()*posts.length)]
-       
-           uploadPhoto(photo, description, author, postId)
-        }
-    })
-}
+    // Set db default values
+    const uploadPost = () => {
+      const post = db.get("posts").find({
+        isPublished: false,
+        scheduledDate: new Date().toLocaleDateString(),
+      });
+      const { image, description, author, postId } = post.value();
 
-//This will run at the start of every hour
-cron.schedule("24 12 * * *", () => {
-    //code to be executed
-    console.log("Wow Amazing :)")
-    uploadPost()
-})
+      uploadPhoto(image, description, author, postId).then((data) => {
+        db.get("posts").find({ postId }).assign({ isPublished: true }).write();
+      });
+    };
 
-cron.schedule("24 18 * * *", () => {
-    //code to be executed
-    uploadPost()
-})
+    //This will run at the start of every minute
+    cron.schedule("* * * * *", () => {
+      //code to be executed
+      uploadPost();
+    });
 
-cron.schedule("24 21 * * *", () => {
-    //code to be executed
-     uploadPost()
-})
+    queue.process("scrape instagram post", (job, done) => {
+      getPostData(job.data.url)
+        .then(({ description, author, image, id, username_img }) => {
+          db.get("posts")
+            .push({
+              description,
+              author,
+              image,
+              username_img,
+              postId: id,
+              isPublished: false,
+            })
+            .write()
 
+            .then((posts) => {
+              done();
+            });
+        })
+        .catch((error) => done(error));
+    });
 
-app.listen(port, function () {
-    console.log(`Server listening on port ${port}`)
+    return db.defaults({ posts: [] }).write();
   })
+
+  .then(() => {
+    app.listen(8030, () => console.log("listening on port 8030"));
+  });

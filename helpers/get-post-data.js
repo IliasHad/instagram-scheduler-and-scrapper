@@ -4,12 +4,9 @@ let page = null;
 
 exports.getPostData = async (url) => {
   try {
-
-    console.log(url)
+    console.log(url);
     // set up Puppeteer
-    browser = await puppeteer.launch({
-      headless: false,
-    });
+    browser = await puppeteer.launch();
     page = await browser.newPage();
     await page.setDefaultNavigationTimeout(0);
 
@@ -35,7 +32,7 @@ exports.getPostData = async (url) => {
         return document.querySelector("header div img").src;
       });
 
-      if (description, author, image, id, username_img) {
+      if ((description, author, image, id, username_img)) {
         resolve({
           description,
           author,
@@ -43,9 +40,8 @@ exports.getPostData = async (url) => {
           id,
           username_img,
         });
-      }
-      else {
-         reject()
+      } else {
+        reject();
       }
       await browser.close();
     });
